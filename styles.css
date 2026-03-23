@@ -1,0 +1,118 @@
+/* mail-unmess panel styles */
+
+#mail-unmess-panel {
+  position: fixed;
+  top: 120px;
+  right: 16px;
+  width: 220px;
+  background: #fff;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  padding: 12px 14px 14px;
+  z-index: 1000;
+  font-family: 'Google Sans', Roboto, Arial, sans-serif;
+  font-size: 13px;
+  color: #202124;
+  box-sizing: border-box;
+}
+
+#mail-unmess-panel h3 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #5f6368;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+/* Status indicator bar */
+#mail-unmess-panel .mu-status-bar {
+  height: 4px;
+  border-radius: 2px;
+  margin-bottom: 10px;
+  transition: background 0.2s;
+}
+
+#mail-unmess-panel .mu-status-bar.status-TODO   { background: #fbbc04; }
+#mail-unmess-panel .mu-status-bar.status-DOING  { background: #4285f4; }
+#mail-unmess-panel .mu-status-bar.status-DONE   { background: #34a853; }
+#mail-unmess-panel .mu-status-bar.status-none   { background: #e0e0e0; }
+
+#mail-unmess-panel label {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 11px;
+  color: #5f6368;
+  font-weight: 500;
+}
+
+#mail-unmess-panel select {
+  width: 100%;
+  padding: 5px 6px;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  font-size: 13px;
+  color: #202124;
+  background: #f8f9fa;
+  margin-bottom: 10px;
+  box-sizing: border-box;
+  cursor: pointer;
+  outline: none;
+}
+
+#mail-unmess-panel select:focus {
+  border-color: #4285f4;
+  background: #fff;
+}
+
+#mail-unmess-panel textarea {
+  width: 100%;
+  height: 72px;
+  padding: 6px;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #202124;
+  resize: vertical;
+  box-sizing: border-box;
+  font-family: inherit;
+  outline: none;
+  background: #f8f9fa;
+  margin-bottom: 10px;
+}
+
+#mail-unmess-panel textarea:focus {
+  border-color: #4285f4;
+  background: #fff;
+}
+
+#mail-unmess-panel button {
+  width: 100%;
+  padding: 6px 0;
+  background: #1a73e8;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s;
+  letter-spacing: 0.1px;
+}
+
+#mail-unmess-panel button:hover {
+  background: #1557b0;
+}
+
+#mail-unmess-panel button:active {
+  background: #0d47a1;
+}
+
+#mail-unmess-panel .mu-saved-msg {
+  display: none;
+  margin-top: 6px;
+  font-size: 11px;
+  color: #34a853;
+  text-align: center;
+}
