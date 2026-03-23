@@ -226,7 +226,7 @@
     const replyBtn = replyBtns.pop();
 
     if (!replyBtn) {
-      alert('Could not find Gmail\'s Reply button.\n\nYour reply has been copied to the clipboard — paste it (Ctrl+V) into Gmail\'s reply box and click Send.');
+      alert('Could not find Gmail\'s Reply button.\n\nYour reply has been copied to the clipboard — paste it into Gmail\'s reply box and click Send.');
       callback(false);
       return;
     }
@@ -235,55 +235,79 @@
     overlay.style.display = 'none';
     replyBtn.click();
 
-    // Poll for the compose contenteditable box.
-    let tries = 0;
-    const poll = setInterval(function () {
-      tries++;
-      const box =
+    /** Selectors for Gmail's contenteditable compose box. */
+    function findComposeBox() {
+      return (
         document.querySelector('[contenteditable="true"].editable') ||
         document.querySelector('[contenteditable="true"][g_editable="true"]') ||
-        document.querySelector('.Am.Al.editable');
+        document.querySelector('.Am.Al.editable')
+      );
+    }
 
-      if (box) {
-        clearInterval(poll);
+    function fillAndSend(box) {
+      box.focus();
+      // execCommand gives best compatibility inside contenteditable fields.
+      document.execCommand('selectAll', false, null);
+      document.execCommand('insertText', false, text);
+      box.dispatchEvent(new InputEvent('input', { bubbles: true }));
 
-        box.focus();
-        // execCommand gives best compatibility inside contenteditable fields.
-        document.execCommand('selectAll', false, null);
-        document.execCommand('insertText', false, text);
-        box.dispatchEvent(new InputEvent('input', { bubbles: true }));
+      // Give Gmail a moment to enable its Send button, then click it.
+      setTimeout(function () {
+        const sendBtn =
+          document.querySelector('[data-tooltip="Send"][role="button"]') ||
+          document.querySelector('[data-tooltip="Send"]') ||
+          document.querySelector('[aria-label^="Send"]') ||
+          document.querySelector('.T-I.J-J5-Ji.aoO');
 
-        // Give Gmail a moment to enable its Send button, then click it.
-        setTimeout(function () {
-          const sendBtn =
-            document.querySelector('[data-tooltip="Send"][role="button"]') ||
-            document.querySelector('[data-tooltip="Send"]') ||
-            document.querySelector('[aria-label^="Send"]') ||
-            document.querySelector('.T-I.J-J5-Ji.aoO');
-
-          if (sendBtn) {
-            sendBtn.click();
-            // Restore overlay after Gmail processes the send.
-            setTimeout(function () {
-              overlay.style.display = '';
-              renderBubbles(msgList, parseGmailMessages(), selfEmail);
-              callback(true);
-            }, 1200);
-          } else {
-            // Send button not found — leave compose open for the user.
-            _showFlash(overlay, 'Compose is open. Review and click Send in Gmail.');
+        if (sendBtn) {
+          sendBtn.click();
+          // Restore overlay after Gmail processes the send.
+          setTimeout(function () {
             overlay.style.display = '';
-            callback(false);
-          }
-        }, 600);
+            renderBubbles(msgList, parseGmailMessages(), selfEmail);
+            callback(true);
+          }, 1200);
+        } else {
+          // Send button not found — leave compose open for the user.
+          _showFlash(overlay, 'Compose is open. Review and click Send in Gmail.');
+          overlay.style.display = '';
+          callback(false);
+        }
+      }, 600);
+    }
 
-      } else if (tries > 30) {
-        clearInterval(poll);
-        alert('Could not open Gmail\'s compose window.\n\nYour reply is in the clipboard — paste it (Ctrl+V) and send manually.');
-        overlay.style.display = '';
-        callback(false);
+    // If the compose box is already present (e.g. reply was already open), act immediately.
+    const existingBox = findComposeBox();
+    if (existingBox) {
+      fillAndSend(existingBox);
+      return;
+    }
+
+    // Use a MutationObserver to react as soon as Gmail adds the compose box to the DOM.
+    const TIMEOUT_MS = 6000;
+    let settled = false;
+
+    const timer = setTimeout(function () {
+      if (settled) return;
+      settled = true;
+      observer.disconnect();
+      alert('Could not open Gmail\'s compose window.\n\nYour reply is in the clipboard — paste it and send manually.');
+      overlay.style.display = '';
+      callback(false);
+    }, TIMEOUT_MS);
+
+    const observer = new MutationObserver(function () {
+      if (settled) return;
+      const box = findComposeBox();
+      if (box) {
+        settled = true;
+        clearTimeout(timer);
+        observer.disconnect();
+        fillAndSend(box);
       }
-    }, 200);
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
   }
 
   /** Show a transient notification banner inside the overlay. */
