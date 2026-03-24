@@ -1,185 +1,26 @@
-/* mail-unmess panel + chat overlay styles */
+/* mail-unmess chat overlay + toolbar button styles */
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   FLOATING TICKET PANEL
+   CHAT VIEW TOOLBAR BUTTON
+   Injected into Gmail's thread toolbar next to Expand All / Print icons.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-#mail-unmess-panel {
-  position: fixed;
-  top: 120px;
-  right: 16px;
-  width: 220px;
-  background: #fff;
-  border: 1px solid #dadce0;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-  z-index: 1000;
-  font-family: 'Google Sans', Roboto, Arial, sans-serif;
-  font-size: 13px;
-  color: #202124;
-  box-sizing: border-box;
-  overflow: hidden;
-}
-
-/* ── Panel header (always visible) ──────────────────────────────────────── */
-
-#mail-unmess-panel .mu-header {
-  display: flex;
+#mu-chat-btn {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 10px 12px;
-  border-bottom: 1px solid #dadce0;
-  background: #f8f9fa;
-  cursor: default;
-  user-select: none;
-}
-
-#mail-unmess-panel .mu-title {
-  font-size: 12px;
-  font-weight: 600;
-  color: #5f6368;
-  letter-spacing: 0.3px;
-  text-transform: uppercase;
-}
-
-#mail-unmess-panel .mu-collapse-btn {
-  background: none;
-  border: none;
-  padding: 0 2px;
-  font-size: 14px;
-  color: #5f6368;
-  cursor: pointer;
+  justify-content: center;
+  font-size: 16px;
   line-height: 1;
-  width: auto;
-  transition: color 0.15s;
-}
-
-#mail-unmess-panel .mu-collapse-btn:hover {
-  color: #202124;
-  background: none;
-}
-
-/* ── Panel body (collapsible) ────────────────────────────────────────────── */
-
-#mail-unmess-panel .mu-panel-body {
-  padding: 12px 14px 14px;
-}
-
-#mail-unmess-panel .mu-panel-body.mu-collapsed {
-  display: none;
-}
-
-/* ── Chat view toggle button ─────────────────────────────────────────────── */
-
-#mail-unmess-panel .mu-view-toggle-btn {
-  width: 100%;
-  padding: 6px 0;
-  margin-bottom: 10px;
-  background: #e8f0fe;
-  color: #1a73e8;
-  border: 1px solid #c5d9f8;
+  padding: 4px 6px;
   border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-  letter-spacing: 0.1px;
-}
-
-#mail-unmess-panel .mu-view-toggle-btn:hover {
-  background: #d2e3fc;
-  border-color: #a8c6f7;
-}
-
-/* ── Status indicator bar ────────────────────────────────────────────────── */
-
-#mail-unmess-panel .mu-status-bar {
-  height: 4px;
-  border-radius: 2px;
-  margin-bottom: 10px;
-  transition: background 0.2s;
-}
-
-#mail-unmess-panel .mu-status-bar.status-TODO  { background: #fbbc04; }
-#mail-unmess-panel .mu-status-bar.status-DOING { background: #4285f4; }
-#mail-unmess-panel .mu-status-bar.status-DONE  { background: #34a853; }
-#mail-unmess-panel .mu-status-bar.status-none  { background: #e0e0e0; }
-
-/* ── Form elements ───────────────────────────────────────────────────────── */
-
-#mail-unmess-panel label {
-  display: block;
-  margin-bottom: 3px;
-  font-size: 11px;
-  color: #5f6368;
-  font-weight: 500;
-}
-
-#mail-unmess-panel select {
-  width: 100%;
-  padding: 5px 6px;
-  border: 1px solid #dadce0;
-  border-radius: 4px;
-  font-size: 13px;
-  color: #202124;
-  background: #f8f9fa;
-  margin-bottom: 10px;
-  box-sizing: border-box;
-  cursor: pointer;
-  outline: none;
-}
-
-#mail-unmess-panel select:focus {
-  border-color: #4285f4;
-  background: #fff;
-}
-
-#mail-unmess-panel textarea {
-  width: 100%;
-  height: 72px;
-  padding: 6px;
-  border: 1px solid #dadce0;
-  border-radius: 4px;
-  font-size: 12px;
-  color: #202124;
-  resize: vertical;
-  box-sizing: border-box;
-  font-family: inherit;
-  outline: none;
-  background: #f8f9fa;
-  margin-bottom: 10px;
-}
-
-#mail-unmess-panel textarea:focus {
-  border-color: #4285f4;
-  background: #fff;
-}
-
-/* ── Save button ─────────────────────────────────────────────────────────── */
-
-#mail-unmess-panel button {
-  width: 100%;
-  padding: 6px 0;
-  background: #1a73e8;
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
+  user-select: none;
   transition: background 0.15s;
-  letter-spacing: 0.1px;
+  vertical-align: middle;
 }
 
-#mail-unmess-panel button:hover  { background: #1557b0; }
-#mail-unmess-panel button:active { background: #0d47a1; }
-
-#mail-unmess-panel .mu-saved-msg {
-  display: none;
-  margin-top: 6px;
-  font-size: 11px;
-  color: #34a853;
-  text-align: center;
+#mu-chat-btn:hover {
+  background: rgba(32, 33, 36, 0.08);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -189,7 +30,7 @@
 #mail-unmess-overlay {
   position: fixed;
   inset: 0;                      /* top/right/bottom/left: 0 */
-  z-index: 999;                  /* below the panel (1000) but above Gmail */
+  z-index: 999;                  /* above Gmail UI */
   display: flex;
   flex-direction: column;
   background: #fff;
@@ -309,7 +150,6 @@
 .mu-bubble-body {
   font-size: 13px;
   line-height: 1.5;
-  white-space: pre-wrap;
 }
 
 /* ── Reply area ──────────────────────────────────────────────────────────── */

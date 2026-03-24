@@ -1,24 +1,22 @@
 /**
  * mail-unmess — Content Script
  *
- * Injects a ticket panel into Gmail's thread view, allowing the user to:
- *   - Assign a status (TODO / DOING / DONE) and write a short note per thread.
+ * Injects a Chat View button into Gmail's thread toolbar, allowing the user to:
  *   - View the conversation as a chat / ticket-system-style overlay.
  *   - Reply quickly without leaving the chat view.
- *
- * Data is persisted in chrome.storage.local, keyed by thread ID.
  */
 
 (function () {
   'use strict';
 
-  const PANEL_ID   = 'mail-unmess-panel';
-  const OVERLAY_ID = 'mail-unmess-overlay';
-  const STATUSES   = ['TODO', 'DOING', 'DONE'];
+  const OVERLAY_ID        = 'mail-unmess-overlay';
+  const CHAT_BTN_ID       = 'mu-chat-btn';
+  const EXPAND_DELAY_MS   = 500;  // time to let Gmail finish expanding messages
+  const OBSERVER_TIMEOUT_MS = 15000; // give up injecting the chat button after this
 
   let currentThreadId = null;
-  let collapsed       = false; // persisted across same-session thread navigations
   let chatActive      = false;
+  let chatBtnObserver = null;
 
   // ─── Utility ──────────────────────────────────────────────────────────────
 
@@ -111,7 +109,7 @@
 
     if (!messages.length) {
       msgList.innerHTML =
-        '<div class="mu-no-msg">No messages found. Expand all emails in the thread first, then click ⟳ Refresh.</div>';
+        '<div class="mu-no-msg">No messages found. Click ⟳ Refresh once all emails have expanded.</div>';
       return;
     }
 
@@ -124,7 +122,7 @@
           '<span class="mu-bubble-sender">' + escHtml(msg.senderName) + '</span>' +
           '<span class="mu-bubble-time">'   + escHtml(msg.timestamp)  + '</span>' +
         '</div>' +
-        '<div class="mu-bubble-body">' + escHtml(msg.bodyText) + '</div>';
+        '<div class="mu-bubble-body">' + escHtml(msg.bodyText).replace(/\n/g, '<br>') + '</div>';
       msgList.appendChild(bubble);
     });
 
@@ -146,7 +144,7 @@
     header.innerHTML =
       '<span class="mu-ov-title">💬 Conversation</span>' +
       '<div class="mu-ov-actions">' +
-        '<button class="mu-ov-refresh" title="Re-read emails (expand all first)">⟳ Refresh</button>' +
+        '<button class="mu-ov-refresh" title="Re-read emails">⟳ Refresh</button>' +
         '<button class="mu-ov-back"    title="Return to Gmail view">✕ Gmail View</button>' +
       '</div>';
     overlay.appendChild(header);
@@ -321,10 +319,27 @@
 
   // ─── View management ──────────────────────────────────────────────────────
 
+  /** Click Gmail's native "Expand all" button if it is present in the DOM. */
+  function triggerExpandAll() {
+    const btn =
+      document.querySelector('[data-tooltip="Expand all"]') ||
+      document.querySelector('[aria-label="Expand all"]');
+    if (btn) { btn.click(); return true; }
+    return false;
+  }
+
   function showChatView(threadId) {
     chatActive = true;
-    createOverlay(threadId);
     _syncChatBtn();
+
+    const expanded = triggerExpandAll();
+
+    function doCreate() { createOverlay(threadId); }
+    if (expanded) {
+      setTimeout(doCreate, EXPAND_DELAY_MS);
+    } else {
+      doCreate();
+    }
   }
 
   function hideChatView() {
@@ -334,120 +349,82 @@
   }
 
   function _syncChatBtn() {
-    const btn = document.getElementById('mu-chat-btn');
-    if (btn) btn.textContent = chatActive ? '📋 Ticket View' : '💬 Chat View';
+    const btn = document.getElementById(CHAT_BTN_ID);
+    if (!btn) return;
+    btn.title       = chatActive ? 'Return to Gmail view' : 'Chat View';
+    btn.textContent = chatActive ? '📋' : '💬';
   }
 
-  // ─── Panel lifecycle ──────────────────────────────────────────────────────
+  // ─── Chat button lifecycle ────────────────────────────────────────────────
 
-  /** Create and return the panel DOM element (without wiring events). */
-  function createPanel() {
-    const panel = document.createElement('div');
-    panel.id = PANEL_ID;
-    panel.innerHTML =
-      '<div class="mu-header">' +
-        '<span class="mu-title">📌 Thread Ticket</span>' +
-        '<button class="mu-collapse-btn" title="Collapse / expand panel">▾</button>' +
-      '</div>' +
-      '<div class="mu-panel-body" id="mu-panel-body">' +
-        '<button id="mu-chat-btn" class="mu-view-toggle-btn">💬 Chat View</button>' +
-        '<div class="mu-status-bar status-none"></div>' +
-        '<label for="mu-status">Status</label>' +
-        '<select id="mu-status">' +
-          '<option value="">— none —</option>' +
-          STATUSES.map(function (s) { return '<option value="' + s + '">' + s + '</option>'; }).join('') +
-        '</select>' +
-        '<label for="mu-notes">Notes</label>' +
-        '<textarea id="mu-notes" placeholder="Add a note…"></textarea>' +
-        '<button id="mu-save">Save</button>' +
-        '<div class="mu-saved-msg">✓ Saved</div>' +
-      '</div>';
-    return panel;
-  }
-
-  /** Remove the panel (and any open overlay) from the DOM. */
-  function removePanel() {
-    const existing = document.getElementById(PANEL_ID);
+  /** Remove the injected chat button and any pending observer. */
+  function removeChatButton() {
+    const existing = document.getElementById(CHAT_BTN_ID);
     if (existing) existing.remove();
+    if (chatBtnObserver) {
+      chatBtnObserver.disconnect();
+      chatBtnObserver = null;
+    }
   }
 
   /**
-   * Inject the panel into the page and wire up its event handlers for the
-   * given thread ID.
+   * Inject the Chat View button into Gmail's thread toolbar (the area that
+   * contains the Expand All / Print / etc. icons).  Because Gmail renders
+   * that toolbar asynchronously after the URL changes, we use a
+   * MutationObserver as a fallback when the target element is not yet present.
    */
-  function injectPanel(threadId) {
-    // Clean up any overlay from a previous thread.
-    if (chatActive) {
-      chatActive = false;
-      removeOverlay();
-    }
-    removePanel();
+  function injectChatButton(threadId) {
+    removeChatButton();
 
-    const panel       = createPanel();
-    document.body.appendChild(panel);
+    function tryInject() {
+      if (document.getElementById(CHAT_BTN_ID)) return true;
 
-    const collapseBtn = panel.querySelector('.mu-collapse-btn');
-    const panelBody   = panel.querySelector('#mu-panel-body');
-    const chatBtn     = panel.querySelector('#mu-chat-btn');
-    const statusSelect = panel.querySelector('#mu-status');
-    const notesArea   = panel.querySelector('#mu-notes');
-    const saveBtn     = panel.querySelector('#mu-save');
-    const savedMsg    = panel.querySelector('.mu-saved-msg');
-    const statusBar   = panel.querySelector('.mu-status-bar');
+      // Locate Gmail's Expand All / Collapse All button as an anchor point.
+      const anchor =
+        document.querySelector('[data-tooltip="Expand all"]') ||
+        document.querySelector('[data-tooltip="Collapse all"]') ||
+        document.querySelector('[aria-label="Expand all"]') ||
+        document.querySelector('[aria-label="Collapse all"]');
 
-    // Restore the collapsed state the user left the panel in.
-    if (collapsed) {
-      panelBody.classList.add('mu-collapsed');
-      collapseBtn.textContent = '▸';
-    }
+      if (!anchor) return false;
 
-    // ── Collapse / expand ──
-    collapseBtn.addEventListener('click', function () {
-      collapsed = !collapsed;
-      panelBody.classList.toggle('mu-collapsed', collapsed);
-      collapseBtn.textContent = collapsed ? '▸' : '▾';
-    });
+      const btn = document.createElement('div');
+      btn.id        = CHAT_BTN_ID;
+      btn.className = 'mu-chat-btn';
+      btn.setAttribute('role', 'button');
+      btn.setAttribute('tabindex', '0');
+      btn.title       = 'Chat View';
+      btn.textContent = '💬';
 
-    // ── Chat view toggle ──
-    chatBtn.addEventListener('click', function () {
-      if (chatActive) {
-        hideChatView();
-      } else {
-        showChatView(threadId);
-      }
-    });
-
-    // ── Status bar ──
-    function updateStatusBar(value) {
-      statusBar.className = 'mu-status-bar ' + (value ? 'status-' + value : 'status-none');
-    }
-
-    // Load persisted data for this thread.
-    chrome.storage.local.get(threadId, function (result) {
-      const data = result[threadId] || {};
-      statusSelect.value = data.status || '';
-      notesArea.value    = data.notes  || '';
-      updateStatusBar(statusSelect.value);
-    });
-
-    // Live colour update when status changes.
-    statusSelect.addEventListener('change', function () {
-      updateStatusBar(this.value);
-    });
-
-    // Save button handler.
-    saveBtn.addEventListener('click', function () {
-      chrome.storage.local.set({
-        [threadId]: {
-          status:    statusSelect.value,
-          notes:     notesArea.value,
-          updatedAt: Date.now(),
-        },
-      }, function () {
-        savedMsg.style.display = 'block';
-        setTimeout(function () { savedMsg.style.display = 'none'; }, 1800);
+      btn.addEventListener('click', function () {
+        if (chatActive) {
+          hideChatView();
+        } else {
+          showChatView(threadId);
+        }
       });
-    });
+
+      // Insert the button immediately before the Expand All button.
+      anchor.parentNode.insertBefore(btn, anchor);
+      return true;
+    }
+
+    if (!tryInject()) {
+      chatBtnObserver = new MutationObserver(function () {
+        if (tryInject()) {
+          chatBtnObserver.disconnect();
+          chatBtnObserver = null;
+        }
+      });
+      chatBtnObserver.observe(document.body, { childList: true, subtree: true });
+      // Safety net: stop observing after the timeout.
+      setTimeout(function () {
+        if (chatBtnObserver) {
+          chatBtnObserver.disconnect();
+          chatBtnObserver = null;
+        }
+      }, OBSERVER_TIMEOUT_MS);
+    }
   }
 
   // ─── Observer: detect thread navigation ──────────────────────────────────
@@ -461,12 +438,16 @@
 
     if (threadId && threadId !== currentThreadId) {
       currentThreadId = threadId;
-      injectPanel(threadId);
+      if (chatActive) {
+        chatActive = false;
+        removeOverlay();
+      }
+      injectChatButton(threadId);
     } else if (!threadId && currentThreadId) {
       // User navigated away from a thread view (e.g. back to inbox list).
       currentThreadId = null;
       if (chatActive) { chatActive = false; removeOverlay(); }
-      removePanel();
+      removeChatButton();
     }
   }
 
